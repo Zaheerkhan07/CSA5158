@@ -1,0 +1,161 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdbool.h>
+
+#define ALPHABET_SIZE 26
+
+// English letter frequencies (in %)
+const float english_letter_frequency[ALPHABET_SIZE] = {
+    8.167, 1.492, 2.782, 4.253, 12.702, 2.228, 2.015, 6.094, 6.966, 0.153,
+    0.772, 4.025, 2.406, 6.749, 7.507, 1.929, 0.095, 5.987, 6.327, 9.056,
+    2.758, 0.978, 2.360, 0.150, 1.974, 0.074
+};
+
+// Function to calculate letter frequencies in a string
+void calculateLetterFrequencies(const char *text, float *frequencies) {
+    int i;
+    int total_letters = 0;
+    memset(frequencies, 0, ALPHABET_SIZE * sizeof(float));
+
+    for (i = 0; text[i] != '\0'; i++) {
+        if (isalpha(text[i])) {
+            int index = tolower(text[i]) - 'a';
+            frequencies[index]++;
+            total_letters++;
+        }
+    }
+
+    // Convert counts to percentages
+    for (i = 0; i < ALPHABET_SIZE; i++) {
+        frequencies[i] = (frequencies[i] / total_letters) * 100.0;
+    }
+}
+
+// Function to decrypt ciphertext using a given letter mapping
+void decryptWithMapping(const char *ciphertext, const char *mapping, char *plaintext) {
+    int i;
+    for (i = 0; ciphertext[i] != '\0'; i++) {
+        if (isalpha(ciphertext[i])) {
+            if (islower(ciphertext[i])) {
+                plaintext[i] = tolower(mapping[ciphertext[i] - 'a']);
+            } else {
+                plaintext[i] = toupper(mapping[ciphertext[i] - 'A']);
+            }
+        } else {
+            plaintext[i] = ciphertext[i];
+        }
+    }
+    plaintext[i] = '\0';
+}
+
+// Function to score the decrypted plaintext based on letter frequency similarity
+float scorePlaintext(const float *plaintext_freq, const float *english_freq) {
+    float score = 0.0;
+    for (int i = 0; i < ALPHABET_SIZE; i++) {
+        score += fabs(plaintext_freq[i] - english_freq[i]);
+    }
+    return score;
+}
+
+// Function to perform letter frequency attack and print top N possible plaintexts
+void letterFrequencyAttack(const char *ciphertext, int topN) {
+    float ciphertext_freq[ALPHABET_SIZE];
+    calculateLetterFrequencies(ciphertext, ciphertext_freq);
+
+    // Attempt to map ciphertext letters to English letters based on frequency analysis
+    char mapping[ALPHABET_SIZE];
+    bool used[ALPHABET_SIZE] = { false };
+    float plaintext_freq[ALPHABET_SIZE];
+    char plaintext[strlen(ciphertext) + 1];
+    float min_score = 10000.0; // A large number to find the minimum score
+    char best_mapping[ALPHABET_SIZE];
+
+    for (int attempt = 0; attempt < ALPHABET_SIZE; attempt++) {
+        // Initialize mapping
+        for (int i = 0; i < ALPHABET_SIZE; i++) {
+            mapping[i] = 'A' + i;
+        }
+
+        // Randomly shuffle the mapping
+        for (int i = ALPHABET_SIZE - 1; i > 0; i--) {
+            int j = rand() % (i + 1);
+            char temp = mapping[i];
+            mapping[i] = mapping[j];
+            mapping[j] = temp;
+        }
+
+        // Decrypt ciphertext using current mapping
+        decryptWithMapping(ciphertext, mapping, plaintext);
+
+        // Calculate letter frequencies of the decrypted plaintext
+        calculateLetterFrequencies(plaintext, plaintext_freq);
+
+        // Score the decrypted plaintext
+        float score = scorePlaintext(plaintext_freq, english_letter_frequency);
+
+        // Keep track of the best mapping (lowest score)
+        if (score < min_score) {
+            min_score = score;
+            strcpy(best_mapping, mapping);
+        }
+    }
+
+    // Decrypt ciphertext using the best mapping found
+    decryptWithMapping(ciphertext, best_mapping, plaintext);
+
+    // Print the top N possible plaintexts based on the best mapping found
+    printf("Top %d possible plaintexts:\n", topN);
+    printf("Score: %.2f\n", min_score);
+    printf("1. %s\n", plaintext);
+
+    // (Optional) Print additional top plaintexts based on letter frequency similarity
+    for (int attempt = 1; attempt < topN; attempt++) {
+        for (int i = 0; i < ALPHABET_SIZE; i++) {
+            mapping[i] = best_mapping[i];
+        }
+        // Randomly shuffle the mapping
+        for (int i = ALPHABET_SIZE - 1; i > 0; i--) {
+            int j = rand() % (i + 1);
+            char temp = mapping[i];
+            mapping[i] = mapping[j];
+            mapping[j] = temp;
+        }
+
+        // Decrypt ciphertext using current mapping
+        decryptWithMapping(ciphertext, mapping, plaintext);
+
+        // Print the decrypted plaintext
+        printf("%d. %s\n", attempt + 1, plaintext);
+    }
+}
+
+int main() {
+    char ciphertext[1000]; // Assuming a reasonable maximum length for input
+    int topN;
+
+    // Read ciphertext from user
+    printf("Enter the ciphertext: ");
+    fgets(ciphertext, sizeof(ciphertext), stdin);
+    ciphertext[strcspn(ciphertext, "\n")] = '\0'; // Remove newline character if present
+
+    // Ask user for top N possible plaintexts
+    printf("Enter the number of top possible plaintexts to display: ");
+    scanf("%d", &topN);
+
+    // Perform letter frequency attack and display results
+    letterFrequencyAttack(ciphertext, topN);
+
+    return 0;
+}
+output:
+nter the ciphertext: Khoor zruog wklv lwvxl vodwrxv ph wkhu ydw wrsshu
+Enter the number of top possible plaintexts to display: 5
+Top 5 possible plaintexts:
+Score: 43.22
+1. Hello world this is the simple cipher.
+2. Ebiil vloev elwv livxl rxavlmv fm evib rdv dlmmlri
+3. Vyxle imklx eliv xviev svive livl rlsve lvu suxepxle
+4. Ivyyr mwxyr xleb xlexl iwxlex er yvmrk iex exxslvi
+5. Lxqqt guoxr xleb xgexg ebgex epp erd xqc txxrleb
